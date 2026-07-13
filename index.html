@@ -29,6 +29,7 @@
           <a class="nav-item" href="#coach"><span class="nav-icon">✦</span>AIコーチ</a>
           <a class="nav-item" href="#analytics"><span class="nav-icon">▤</span>グラフ</a>
           <a class="nav-item" href="#foods"><span class="nav-icon">◒</span>食材データ</a>
+          <a class="nav-item" href="#profile"><span class="nav-icon">◎</span>プロフィール</a>
         </nav>
 
         <div class="sidebar-bottom">
@@ -38,7 +39,7 @@
               <span class="done">月</span><span class="done">火</span><span class="done">水</span><span class="done">木</span><span class="today">金</span><span>土</span><span>日</span>
             </div>
           </div>
-          <a class="profile-link" href="#profile">
+          <a class="profile-link" href="#profile" data-section="profile">
             <span class="avatar">KS</span>
             <span><strong>こき</strong><small>プロフィール</small></span>
             <span class="more">•••</span>
@@ -48,7 +49,7 @@
 
       <main class="main-content" id="dashboard">
         <header class="topbar">
-          <button class="mobile-menu" aria-label="メニューを開く">☰</button>
+          <button class="mobile-menu" id="mobile-menu" aria-label="メニューを開く" aria-expanded="false">☰</button>
           <div class="date-switcher">
             <button class="icon-button" data-date-shift="-1" aria-label="前の日">‹</button>
             <div><span class="eyebrow">TODAY</span><strong id="current-date">2026年7月13日（月）</strong></div>
@@ -144,8 +145,8 @@
           </section>
 
           <section class="food-library" id="foods">
-            <div class="section-heading"><div><span class="eyebrow">FOOD SEARCH</span><h2>料理名・商品から栄養を検索</h2></div><span class="catalog-source">NutriNote 食品カタログ</span></div>
-            <div class="food-search-row"><div class="search-field"><span>⌕</span><input id="food-search" type="search" placeholder="例：サラダチキン、鮭おにぎり、ヨーグルト" /></div><button class="search-button" id="food-search-button">検索</button></div>
+            <div class="section-heading"><div><span class="eyebrow">FOOD SEARCH</span><h2>料理名・商品から栄養を検索</h2></div><span class="catalog-source">食品カタログ + AI候補</span></div>
+            <div class="food-search-row"><div class="search-field"><span>⌕</span><input id="food-search" type="search" placeholder="例：カレー、サラダチキン、鮭おにぎり" /></div><button class="search-button" id="food-search-button">AIで検索</button></div>
             <div class="food-results" id="food-results"></div>
             <div class="barcode-heading"><span class="eyebrow">BARCODE</span><strong>商品のバーコードから検索</strong></div>
             <div class="food-search-row barcode-row"><div class="search-field"><span>▥</span><input id="barcode-input" inputmode="numeric" type="text" placeholder="JANコード 13桁を入力" /></div><button class="search-button" id="barcode-search">商品を検索</button></div>
@@ -197,6 +198,14 @@
       </main>
     </div>
 
+    <div class="sidebar-scrim" id="sidebar-scrim"></div>
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="モバイルナビゲーション">
+      <a href="#dashboard"><span>⌂</span><small>ホーム</small></a>
+      <a href="#history"><span>◷</span><small>食事</small></a>
+      <a href="#coach"><span>✦</span><small>AIコーチ</small></a>
+      <a href="#analytics"><span>▤</span><small>グラフ</small></a>
+      <a href="#profile"><span>◎</span><small>設定</small></a>
+    </nav>
     <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
       <section class="meal-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <button class="modal-close" id="modal-close" aria-label="閉じる">×</button>
