@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7faf8" />
+    <meta name="description" content="食事、栄養、体重、歩数をまとめて管理するNutriNote" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <title>NutriNote | 食事と栄養の記録</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="メインナビゲーション">
+        <a class="brand" href="#dashboard" aria-label="NutriNote ホーム">
+          <span class="brand-mark">N</span>
+          <span class="brand-name">Nutri<span>Note</span></span>
+        </a>
+
+        <nav class="main-nav">
+          <a class="nav-item active" href="#dashboard"><span class="nav-icon">⌂</span>ダッシュボード</a>
+          <a class="nav-item" href="#history"><span class="nav-icon">◷</span>食事履歴</a>
+          <a class="nav-item" href="#insights"><span class="nav-icon">▥</span>栄養レポート</a>
+          <a class="nav-item" href="#coach"><span class="nav-icon">✦</span>AIコーチ</a>
+          <a class="nav-item" href="#analytics"><span class="nav-icon">▤</span>グラフ</a>
+          <a class="nav-item" href="#foods"><span class="nav-icon">◒</span>食材データ</a>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="streak-card">
+            <div class="streak-top"><span>今週の記録</span><strong>5<span>/7日</span></strong></div>
+            <div class="week-dots" aria-label="今週の記録状況">
+              <span class="done">月</span><span class="done">火</span><span class="done">水</span><span class="done">木</span><span class="today">金</span><span>土</span><span>日</span>
+            </div>
+          </div>
+          <a class="profile-link" href="#profile">
+            <span class="avatar">KS</span>
+            <span><strong>こき</strong><small>プロフィール</small></span>
+            <span class="more">•••</span>
+          </a>
+        </div>
+      </aside>
+
+      <main class="main-content" id="dashboard">
+        <header class="topbar">
+          <button class="mobile-menu" aria-label="メニューを開く">☰</button>
+          <div class="date-switcher">
+            <button class="icon-button" data-date-shift="-1" aria-label="前の日">‹</button>
+            <div><span class="eyebrow">TODAY</span><strong id="current-date">2026年7月13日（月）</strong></div>
+            <button class="icon-button" data-date-shift="1" aria-label="次の日">›</button>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button notification" aria-label="通知"><span>♧</span><i></i></button>
+            <button class="install-button" id="install-app" hidden><span>↓</span>アプリとして追加</button>
+            <button class="primary-button open-modal"><span>＋</span>食事を追加</button>
+          </div>
+        </header>
+
+        <div class="page-body">
+          <section class="welcome-row">
+            <div>
+              <p class="eyebrow green">MONDAY, JUL 13</p>
+              <h1>おかえりなさい、こきさん。</h1>
+              <p class="muted">今日も無理なく、いい食事を積み重ねましょう。</p>
+            </div>
+            <div class="goal-chip"><span class="sparkle">✦</span>目標まであと <strong id="remaining-kcal">358 kcal</strong></div>
+          </section>
+
+          <section class="summary-grid" aria-label="今日のサマリー">
+            <article class="calorie-panel summary-card">
+              <div class="card-heading"><div><span class="eyebrow">CALORIES</span><h2>今日のカロリー</h2></div><span class="card-icon peach">◉</span></div>
+              <div class="calorie-content">
+                <div class="ring" id="calorie-ring"><div><strong id="calorie-total">1,842</strong><span>/ <b id="calorie-target">2,200</b> kcal</span></div></div>
+                <div class="calorie-copy"><span class="status-dot"></span><strong>いいペースです</strong><p>目標の <b id="calorie-percent">84%</b> を達成</p></div>
+              </div>
+              <div class="mini-scale"><span>0</span><div><i id="calorie-bar"></i></div><span id="calorie-scale-target">2,200</span></div>
+            </article>
+
+            <article class="pfc-panel summary-card">
+              <div class="card-heading"><div><span class="eyebrow">MACROS</span><h2>主要栄養素</h2></div><button class="text-button" data-section="insights">詳細を見る <span>→</span></button></div>
+              <div class="macro-list">
+                <div class="macro-row"><div class="macro-label"><span class="macro-dot protein"></span><span>たんぱく質</span><b id="protein-total">96g</b><small>/ 130g</small></div><div class="macro-track"><i class="protein-fill" id="protein-bar"></i></div></div>
+                <div class="macro-row"><div class="macro-label"><span class="macro-dot fat"></span><span>脂質</span><b id="fat-total">58g</b><small>/ 70g</small></div><div class="macro-track"><i class="fat-fill" id="fat-bar"></i></div></div>
+                <div class="macro-row"><div class="macro-label"><span class="macro-dot carbs"></span><span>炭水化物</span><b id="carbs-total">214g</b><small>/ 280g</small></div><div class="macro-track"><i class="carbs-fill" id="carbs-bar"></i></div></div>
+              </div>
+              <div class="macro-foot"><span>目標比</span><strong>バランス良好</strong><span class="check">✓</span></div>
+            </article>
+          </section>
+
+          <section class="tracking-grid" aria-label="ダイエットと活動量">
+            <article class="tracking-card weight-card">
+              <div class="card-heading"><div><span class="eyebrow">WEIGHT GOAL</span><h2>ダイエット目標</h2></div><span class="card-icon mint">↘</span></div>
+              <div class="weight-overview"><div><span class="small-label">現在</span><strong><span id="current-weight-display">68.4</span><small> kg</small></strong></div><div class="weight-arrow">→</div><div><span class="small-label">目標</span><strong class="target-number"><span id="target-weight-display">62.0</span><small> kg</small></strong></div><div class="weight-remaining"><span>あと</span><b id="weight-remaining">6.4 kg</b></div></div>
+              <div class="weight-track"><i id="weight-progress"></i></div>
+              <div class="goal-date-row"><span>このペースなら</span><strong id="goal-date">2026年10月20日ごろ</strong></div>
+              <div class="weight-form"><label><span>現在体重</span><input id="current-weight" type="number" min="30" max="250" step="0.1" value="68.4" /></label><label><span>目標体重</span><input id="target-weight" type="number" min="30" max="250" step="0.1" value="62.0" /></label><label><span>1日の赤字</span><input id="daily-deficit" type="number" min="100" max="1200" step="50" value="500" /><em>kcal</em></label><button class="small-button weight-save" id="weight-save">更新</button></div>
+              <p class="health-disclaimer">推定値です。無理な制限は避け、体調を優先してください。</p>
+            </article>
+
+            <article class="tracking-card steps-card">
+              <div class="card-heading"><div><span class="eyebrow">ACTIVITY SYNC</span><h2>歩数と消費カロリー</h2></div><span class="health-status" id="health-status">未接続</span></div>
+              <div class="steps-overview"><div class="steps-icon">♧</div><div><strong id="step-total">7,842</strong><span>歩</span><p><b id="exercise-kcal">284 kcal</b> 消費</p></div></div>
+              <div class="steps-track"><i id="steps-progress"></i></div><div class="steps-scale"><span>0歩</span><span>目標 10,000歩</span></div>
+              <div class="sync-footer"><span><b id="net-calorie">1,558</b> kcal 純摂取</span><button class="sync-button" id="health-sync"><span>↻</span> Google Healthと同期</button></div>
+              <p class="sync-note">Google Health / Health Connectから今日の歩数を取得</p>
+            </article>
+          </section>
+
+          <section class="content-grid">
+            <div class="meal-section" id="history">
+              <div class="section-heading"><div><span class="eyebrow">MEALS</span><h2>今日の食事</h2></div><button class="filter-button" id="filter-button">すべて <span>⌄</span></button></div>
+              <div class="meal-list" id="meal-list"></div>
+              <button class="add-meal-row open-modal"><span>＋</span>食事を追加する</button>
+            </div>
+
+            <aside class="right-column">
+              <section class="insight-card" id="insights">
+                <div class="section-heading"><div><span class="eyebrow">INSIGHT</span><h2>今日のひとこと</h2></div><span class="card-icon mint">✦</span></div>
+                <div class="insight-art"><span class="art-orbit orbit-one"></span><span class="art-orbit orbit-two"></span><span class="art-leaf leaf-one">⌁</span><span class="art-leaf leaf-two">⌁</span><span class="art-center">🥑</span></div>
+                <p class="insight-quote">「あと少しでたんぱく質の目標達成。夕食に魚や豆腐をプラスしてみましょう。」</p>
+                <button class="outline-button" data-section="foods">おすすめ食材を見る <span>→</span></button>
+              </section>
+
+              <section class="coach-card" id="coach">
+                <div class="section-heading"><div><span class="eyebrow">AI COACH</span><h2>食事について相談する</h2></div><span class="coach-badge">BETA</span></div>
+                <div class="coach-intro"><span class="coach-avatar">✦</span><p id="coach-summary">今日の記録を見ながら、あなたに合ったアドバイスをします。</p></div>
+                <div class="coach-prompts"><button data-coach-prompt="今日の食事バランスを教えて">食事バランス</button><button data-coach-prompt="たんぱく質を増やすには？">たんぱく質</button><button data-coach-prompt="目標体重までの進め方は？">減量ペース</button></div>
+                <div class="coach-answer" id="coach-answer" aria-live="polite"><span class="answer-label">AI COACH</span><p id="coach-answer-text">まずは今日の食事を確認しました。気になることを下から選ぶか、質問を入力してください。</p></div>
+                <div class="coach-input-row"><input id="coach-question" type="text" placeholder="例：夕食は何を食べたらいい？" /><button id="coach-ask" aria-label="AIコーチに質問する">→</button></div>
+                <p class="coach-note">記録データをもとにした提案です。医療上の判断は専門家にご相談ください。</p>
+              </section>
+
+              <section class="water-card">
+                <div class="section-heading"><div><span class="eyebrow">HYDRATION</span><h2>水分補給</h2></div><span class="card-icon blue">◌</span></div>
+                <div class="water-content"><div class="water-bottle"><div id="water-fill"></div></div><div><strong id="water-total">1,200</strong><span> / 2,000 ml</span><p>あとコップ 3 杯</p></div></div>
+                <div class="water-actions"><button class="small-button water-add" data-amount="200">＋ 200 ml</button><button class="small-icon-button" id="water-reset" aria-label="水分量をリセット">↻</button></div>
+              </section>
+            </aside>
+          </section>
+
+          <section class="food-library" id="foods">
+            <div class="section-heading"><div><span class="eyebrow">FOOD SEARCH</span><h2>料理名・商品から栄養を検索</h2></div><span class="catalog-source">NutriNote 食品カタログ</span></div>
+            <div class="food-search-row"><div class="search-field"><span>⌕</span><input id="food-search" type="search" placeholder="例：サラダチキン、鮭おにぎり、ヨーグルト" /></div><button class="search-button" id="food-search-button">検索</button></div>
+            <div class="food-results" id="food-results"></div>
+            <div class="barcode-heading"><span class="eyebrow">BARCODE</span><strong>商品のバーコードから検索</strong></div>
+            <div class="food-search-row barcode-row"><div class="search-field"><span>▥</span><input id="barcode-input" inputmode="numeric" type="text" placeholder="JANコード 13桁を入力" /></div><button class="search-button" id="barcode-search">商品を検索</button></div>
+            <div class="barcode-examples"><span>サンプル:</span><button data-barcode="4901003012345">グリルチキン</button><button data-barcode="4902102112345">おにぎり</button><button data-barcode="4901777123456">ヨーグルト</button></div>
+            <div id="barcode-result"></div>
+            <div class="section-heading quick-heading"><div><span class="eyebrow">QUICK ADD</span><h2>よく使う食材</h2></div><button class="text-button" id="clear-food-search">検索をクリア <span>×</span></button></div>
+            <div class="food-chips">
+              <button class="food-chip" data-food="鶏むね肉"><span>🍗</span><strong>鶏むね肉</strong><small>165 kcal / 100g</small></button>
+              <button class="food-chip" data-food="玄米"><span>🍚</span><strong>玄米</strong><small>165 kcal / 100g</small></button>
+              <button class="food-chip" data-food="ゆで卵"><span>🥚</span><strong>ゆで卵</strong><small>76 kcal / 1個</small></button>
+              <button class="food-chip" data-food="アボカド"><span>🥑</span><strong>アボカド</strong><small>187 kcal / 100g</small></button>
+            </div>
+          </section>
+
+          <section class="analytics-section" id="analytics">
+            <div class="section-heading"><div><span class="eyebrow">PROGRESS</span><h2>変化を見える化</h2></div><span class="period-chip">直近7日</span></div>
+            <div class="analytics-grid">
+              <article class="chart-card">
+                <div class="card-heading"><div><span class="eyebrow">WEIGHT TREND</span><h3>体重の推移</h3></div><strong class="chart-highlight" id="weight-change">-0.8 kg</strong></div>
+                <div class="chart-wrap"><svg class="weight-chart" viewBox="0 0 360 150" role="img" aria-label="直近7日間の体重推移"><line class="chart-grid-line" x1="12" y1="24" x2="348" y2="24"></line><line class="chart-grid-line" x1="12" y1="75" x2="348" y2="75"></line><line class="chart-grid-line" x1="12" y1="126" x2="348" y2="126"></line><polyline id="weight-line" points=""></polyline><g id="weight-dots"></g></svg><div class="chart-labels" id="weight-labels"></div></div>
+              </article>
+              <article class="chart-card">
+                <div class="card-heading"><div><span class="eyebrow">CALORIE INTAKE</span><h3>摂取カロリー</h3></div><strong class="chart-highlight coral" id="avg-calorie">1,842 kcal</strong></div>
+                <div class="bar-chart" id="calorie-bars" aria-label="直近7日間の摂取カロリー"></div><div class="chart-labels" id="calorie-labels"></div><div class="chart-legend"><span><i></i>摂取</span><span><i></i>目標 <b id="calorie-legend-target">2,200</b> kcal</span></div>
+              </article>
+            </div>
+            <article class="review-card">
+              <div class="review-title"><span class="review-icon">✦</span><div><span class="eyebrow">AI WEEKLY REVIEW</span><h3>今週の振り返り</h3></div><button class="review-button" id="weekly-review-button">レビューを生成</button></div>
+              <p id="weekly-review-text">今週の記録を分析して、続けやすい改善ポイントをまとめます。</p>
+            </article>
+          </section>
+
+          <section class="settings-section" id="profile">
+            <div class="section-heading"><div><span class="eyebrow">PERSONAL SETTINGS</span><h2>あなたに合わせて調整</h2></div></div>
+            <div class="settings-grid">
+              <article class="profile-card">
+                <div class="card-heading"><div><span class="eyebrow">PROFILE</span><h3>目標カロリーを計算</h3></div><span class="card-icon mint">◎</span></div>
+                <div class="profile-form"><label>年齢<input id="profile-age" type="number" min="13" max="100" value="30" /></label><label>身長（cm）<input id="profile-height" type="number" min="100" max="230" value="170" /></label><label>性別<select id="profile-sex"><option value="other">未設定</option><option value="female">女性</option><option value="male">男性</option></select></label><label>活動量<select id="profile-activity"><option value="1.2">ほぼ座り仕事</option><option value="1.375">軽い運動 週1〜3回</option><option value="1.55" selected>運動 週3〜5回</option><option value="1.725">強めの運動 週6〜7回</option></select></label></div>
+                <div class="energy-result"><div><span>推定消費カロリー</span><strong id="tdee-value">2,350 kcal</strong></div><div><span>減量中の目安</span><strong class="green-number" id="profile-target-kcal">1,850 kcal</strong></div><button id="profile-save">保存</button></div>
+              </article>
+              <article class="reminder-card" id="reminders">
+                <div class="card-heading"><div><span class="eyebrow">REMINDERS</span><h3>記録を忘れないために</h3></div><span class="card-icon blue">◷</span></div>
+                <div class="reminder-list"><label><input id="reminder-meal" type="checkbox" checked /><span><strong>食事の記録</strong><small>食後に記録を促す</small></span><input class="reminder-time" id="reminder-meal-time" type="time" value="20:00" /></label><label><input id="reminder-water" type="checkbox" checked /><span><strong>水分補給</strong><small>2時間おきに水分を確認</small></span><span class="toggle-mark">ON</span></label><label><input id="reminder-weight" type="checkbox" /><span><strong>体重測定</strong><small>毎朝の記録を促す</small></span><input class="reminder-time" id="reminder-weight-time" type="time" value="07:30" /></label></div>
+                <div class="reminder-footer"><span id="reminder-status">リマインダーはこの端末に保存されます</span><button id="reminder-test">通知テスト</button><button id="reminder-save">設定を保存</button></div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+      <section class="meal-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal-close" id="modal-close" aria-label="閉じる">×</button>
+        <div class="modal-header"><span class="eyebrow green">NEW MEAL</span><h2 id="modal-title">食事を追加</h2><p>写真または食事内容から、栄養をすばやく記録できます。</p></div>
+        <div class="modal-tabs"><button class="modal-tab active" data-tab="ai">✦ AIで解析</button><button class="modal-tab" data-tab="manual">☷ 手入力</button></div>
+        <div class="tab-panel active" data-panel="ai">
+          <label class="upload-box" for="meal-image"><input type="file" id="meal-image" accept="image/*" /><span class="upload-icon">↑</span><strong>食事の写真をアップロード</strong><small>JPG / PNG · 10MBまで</small><img id="image-preview" alt="アップロードした食事のプレビュー" /></label>
+          <div class="or-divider"><span>または</span></div>
+          <label class="field-label" for="meal-description">食事の内容を入力</label>
+          <textarea id="meal-description" rows="3" placeholder="例：鶏むね肉、玄米、ブロッコリー、味噌汁"></textarea>
+          <div class="sample-prompts"><button data-prompt="鶏むね肉、玄米、ブロッコリー">鶏むね肉の定食</button><button data-prompt="オートミール、バナナ、ヨーグルト">朝のオートミール</button></div>
+          <button class="analyze-button" id="analyze-button"><span>✦</span> AIで栄養を解析する</button>
+          <p class="demo-note">このMVPでは入力内容や画像をもとに推定結果を生成します。</p>
+        </div>
+        <div class="tab-panel" data-panel="manual">
+          <label class="field-label" for="manual-name">食事名</label><input class="text-input" id="manual-name" type="text" placeholder="例：自家製サラダ" />
+          <div class="form-grid"><label><span class="field-label">カロリー（kcal）</span><input class="text-input" id="manual-kcal" type="number" value="400" /></label><label><span class="field-label">たんぱく質（g）</span><input class="text-input" id="manual-protein" type="number" value="20" /></label><label><span class="field-label">脂質（g）</span><input class="text-input" id="manual-fat" type="number" value="15" /></label><label><span class="field-label">炭水化物（g）</span><input class="text-input" id="manual-carbs" type="number" value="45" /></label></div>
+          <label class="field-label" for="manual-time">時間</label><input class="text-input" id="manual-time" type="time" value="19:00" />
+          <button class="analyze-button" id="manual-add"><span>＋</span> 食事を記録する</button>
+        </div>
+        <div class="analysis-result" id="analysis-result" hidden></div>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
