@@ -47,6 +47,12 @@ const aiDishCatalog = [
   { keywords: ["サラダ"], name: "チキンサラダ", emoji: "🥗", unit: "1皿", kcal: 310, protein: 27, fat: 14, carbs: 22 }
 ];
 
+const FOOD_API = {
+  openFoodFacts: "https://world.openfoodfacts.org/api/v2",
+  foodDataCentral: "https://api.nal.usda.gov/fdc/v1"
+};
+const USDA_API_KEY = "DEMO_KEY";
+
 const barcodeCatalog = {
   "4901003012345": { name: "グリルチキン プレーン", emoji: "🍗", unit: "1パック", kcal: 132, protein: 26, fat: 2, carbs: 2 },
   "4902102112345": { name: "鮭おにぎり", emoji: "🍙", unit: "1個", ...foodEstimates["鮭おにぎり"] },
@@ -65,6 +71,8 @@ let weightHistory = JSON.parse(localStorage.getItem("nutrinote-weight-history") 
 let profileData = JSON.parse(localStorage.getItem("nutrinote-profile") || "null") || defaultProfile;
 let reminderData = JSON.parse(localStorage.getItem("nutrinote-reminders") || "null") || defaultReminders;
 let currentFoodResults = [];
+let currentBarcodeProduct = null;
+let foodSearchRequestId = 0;
 let analysis = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -138,23 +146,107 @@ function renderSteps() {
   $("#step-total").textContent = formatNumber(stepsData.steps); $("#exercise-kcal").textContent = `${formatNumber(stepsData.kcal)} kcal`; $("#steps-progress").style.width = `${Math.min(100, (stepsData.steps / 10000) * 100)}%`; $("#health-status").textContent = stepsData.connected ? "接続済み" : "未接続"; $("#health-status").classList.toggle("connected", stepsData.connected); renderSummary(); localStorage.setItem("nutrinote-steps", JSON.stringify(stepsData));
 }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
-function aiSearchFoods(query) {
-  const normalized = query.trim().toLowerCase(); if (!normalized) return [];
-  const catalogMatches = foodCatalog.filter((food) => [food.name, food.unit].some((term) => term.toLowerCase().includes(normalized)));
-  if (catalogMatches.length) return catalogMatches.map((food) => ({ ...food, source: "食品カタログ" }));
-  const dishMatches = aiDishCatalog.filter((food) => food.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()) || keyword.toLowerCase().includes(normalized)));
-  if (dishMatches.length) return dishMatches.map((food) => ({ ...food, source: "AI候補・一般的な1食分" }));
-  return [{ name: `${query.trim()}（AI推定）`, emoji: "✦", unit: "一般的な1食分", kcal: 550, protein: 22, fat: 18, carbs: 70, source: "AI推定・要確認", estimated: true }];
+function asNumber(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
+function nutrientValue(nutrients, keys) { for (const key of keys) { const value = asNumber(nutrients?.[key]); if (value !== null) return value; } return null; }
+function normalizeFood(name, nutrition, extra = {}) {
+  const kcal = nutrientValue(nutrition, ["kcal", "energy-kcal_100g", "energy-kcal", "energy_kcal"]);
+  const energyKj = nutrientValue(nutrition, ["energy-kj_100g", "energy-kj", "energy_100g"]);
+  const calories = kcal ?? (energyKj !== null ? energyKj / 4.184 : null);
+  if (!name || calories === null) return null;
+  return {
+    name,
+    emoji: extra.emoji || "🍽️",
+    unit: extra.unit || "100gあたり",
+    kcal: Math.round(calories),
+    protein: Math.round((nutrientValue(nutrition, ["protein", "protein_100g", "proteins_100g"]) ?? 0) * 10) / 10,
+    fat: Math.round((nutrientValue(nutrition, ["fat", "fat_100g", "fat_100g"]) ?? 0) * 10) / 10,
+    carbs: Math.round((nutrientValue(nutrition, ["carbs", "carbohydrate", "carbohydrates", "carbohydrates_100g"]) ?? 0) * 10) / 10,
+    ...extra
+  };
 }
-function renderFoodResults(query = "") {
-  currentFoodResults = query ? aiSearchFoods(query) : [];
-  $("#food-results").innerHTML = currentFoodResults.length ? currentFoodResults.map((food, index) => `<article class="food-result ${food.estimated ? "ai-estimated" : ""}"><span class="food-result-icon">${escapeHtml(food.emoji)}</span><div><strong>${escapeHtml(food.name)}</strong><small>${formatNumber(food.kcal)} kcal · P ${food.protein}g · F ${food.fat}g · C ${food.carbs}g / ${escapeHtml(food.unit)}<br><span class="food-source">${escapeHtml(food.source)}</span></small></div><button data-search-index="${index}">＋追加</button></article>`).join("") : "";
-  $$('[data-search-index]').forEach((button) => button.addEventListener("click", () => addSearchedFood(Number(button.dataset.searchIndex))));
+function normalizeOpenFoodFactsProduct(product) {
+  const name = product.product_name_ja || product.product_name || product.product_name_en || product.generic_name;
+  const nutrients = product.nutriments || {};
+  return normalizeFood(name, nutrients, {
+    emoji: "📦",
+    unit: "100gあたり",
+    brand: product.brands || "",
+    source: "Open Food Facts API",
+    code: product.code || ""
+  });
+}
+function normalizeUsdaFood(food) {
+  const nutrients = Object.fromEntries((food.foodNutrients || []).map((nutrient) => [String(nutrient.nutrientId), nutrient.value]));
+  return normalizeFood(food.description, {
+    kcal: nutrients["1008"],
+    protein: nutrients["1003"],
+    fat: nutrients["1004"],
+    carbs: nutrients["1005"]
+  }, { emoji: "🍽️", unit: "100gあたり", source: "USDA FoodData Central API" });
+}
+async function fetchOpenFoodFacts(query) {
+  const params = new URLSearchParams({ search_terms: query, search_simple: "1", action: "process", page_size: "8", fields: "code,product_name,product_name_ja,product_name_en,generic_name,brands,nutriments" });
+  const response = await fetch(`${FOOD_API.openFoodFacts}/search?${params}`);
+  if (!response.ok) throw new Error(`Open Food Facts: ${response.status}`);
+  const data = await response.json();
+  return (data.products || []).map(normalizeOpenFoodFactsProduct).filter(Boolean);
+}
+async function fetchUsdaFoods(query) {
+  const params = new URLSearchParams({ api_key: USDA_API_KEY, query, pageSize: "8", pageNumber: "1", dataType: "Foundation,SR Legacy,FNDDS,Branded" });
+  const response = await fetch(`${FOOD_API.foodDataCentral}/foods/search?${params}`);
+  if (!response.ok) throw new Error(`FoodData Central: ${response.status}`);
+  const data = await response.json();
+  return (data.foods || []).map(normalizeUsdaFood).filter(Boolean);
+}
+function localFoodMatches(query) {
+  const normalized = query.trim().toLowerCase();
+  const catalogMatches = foodCatalog.filter((food) => [food.name, food.unit].some((term) => term.toLowerCase().includes(normalized))).map((food) => ({ ...food, source: "NutriNote食品カタログ" }));
+  const dishMatches = aiDishCatalog.filter((food) => food.keywords.some((keyword) => normalized.includes(keyword.toLowerCase()) || keyword.toLowerCase().includes(normalized))).map((food) => ({ ...food, source: "NutriNote料理候補（要確認）", estimated: true }));
+  return [...catalogMatches, ...dishMatches];
+}
+function uniqueFoods(foods) { const seen = new Set(); return foods.filter((food) => { const key = food.name.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; }); }
+async function searchFoods(query) {
+  const [offResult, usdaResult] = await Promise.allSettled([fetchOpenFoodFacts(query), fetchUsdaFoods(query)]);
+  const apiFoods = [
+    ...(offResult.status === "fulfilled" ? offResult.value : []),
+    ...(usdaResult.status === "fulfilled" ? usdaResult.value : [])
+  ];
+  return uniqueFoods([...apiFoods, ...localFoodMatches(query)]);
+}
+async function renderFoodResults(query = "") {
+  const target = $("#food-results");
+  const requestId = ++foodSearchRequestId;
+  currentFoodResults = [];
+  if (!query) { target.innerHTML = ""; return; }
+  target.innerHTML = `<p class="food-result-empty">APIから栄養情報を検索中...</p>`;
+  $("#food-search-button").disabled = true;
+  try {
+    currentFoodResults = await searchFoods(query);
+    if (requestId !== foodSearchRequestId) return;
+    target.innerHTML = currentFoodResults.length ? currentFoodResults.map((food, index) => `<article class="food-result ${food.estimated ? "ai-estimated" : ""}"><span class="food-result-icon">${escapeHtml(food.emoji)}</span><div><strong>${escapeHtml(food.name)}</strong><small>${formatNumber(food.kcal)} kcal · P ${food.protein}g · F ${food.fat}g · C ${food.carbs}g / ${escapeHtml(food.unit)}${food.brand ? `<br>${escapeHtml(food.brand)}` : ""}<br><span class="food-source">${escapeHtml(food.source)}</span></small></div><button data-search-index="${index}">＋追加</button></article>`).join("") : `<p class="food-result-empty">「${escapeHtml(query)}」の栄養データが見つかりませんでした。商品名やメーカー名を追加して検索してください。</p>`;
+    $$('[data-search-index]').forEach((button) => button.addEventListener("click", () => addSearchedFood(Number(button.dataset.searchIndex))));
+  } catch (error) {
+    if (requestId !== foodSearchRequestId) return;
+    currentFoodResults = localFoodMatches(query);
+    target.innerHTML = currentFoodResults.length ? currentFoodResults.map((food, index) => `<article class="food-result ai-estimated"><span class="food-result-icon">${escapeHtml(food.emoji)}</span><div><strong>${escapeHtml(food.name)}</strong><small>${formatNumber(food.kcal)} kcal · P ${food.protein}g · F ${food.fat}g · C ${food.carbs}g / ${escapeHtml(food.unit)}<br><span class="food-source">APIに接続できないためローカル候補・要確認</span></small></div><button data-search-index="${index}">＋追加</button></article>`).join("") : `<p class="food-result-empty">栄養APIに接続できませんでした。通信状態を確認して再検索してください。</p>`;
+    $$('[data-search-index]').forEach((button) => button.addEventListener("click", () => addSearchedFood(Number(button.dataset.searchIndex))));
+  } finally { if (requestId === foodSearchRequestId) $("#food-search-button").disabled = false; }
 }
 function addSearchedFood(index) { const food = currentFoodResults[index]; if (!food) return; meals.push({ id: Date.now(), type: "検索", time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }), name: food.name, detail: `${food.unit} · ${food.source}`, emoji: food.emoji, kcal: food.kcal, protein: food.protein, fat: food.fat, carbs: food.carbs }); renderMeals(); renderSummary(); showToast(`${food.name}を食事に追加しました`); }
 function addCatalogFood(name) { const food = foodCatalog.find((item) => item.name === name); if (!food) return; meals.push({ id: Date.now(), type: "追加", time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }), name: food.name, detail: `${food.unit} · 食品カタログ`, emoji: food.emoji, kcal: food.kcal, protein: food.protein, fat: food.fat, carbs: food.carbs }); renderMeals(); renderSummary(); showToast(`${food.name}を食事に追加しました`); }
-function renderBarcodeResult(code) { const cleanCode = code.replace(/\D/g, ""); const product = barcodeCatalog[cleanCode]; const target = $("#barcode-result"); target.innerHTML = product ? `<article class="food-result"><span class="food-result-icon">${product.emoji}</span><div><strong>${product.name}</strong><small>${product.kcal} kcal · P ${product.protein}g · F ${product.fat}g · C ${product.carbs}g / ${product.unit}<br><span style="color:var(--muted)">JAN ${cleanCode}</span></small></div><button data-add-barcode="${cleanCode}">＋追加</button></article>` : `<p class="food-result-empty">${cleanCode ? `バーコード ${cleanCode} の商品が見つかりません。` : "バーコードを入力してください。"} サンプルコードも試せます。</p>`; $$('[data-add-barcode]').forEach((button) => button.addEventListener("click", () => addBarcodeProduct(button.dataset.addBarcode))); }
-function addBarcodeProduct(code) { const product = barcodeCatalog[code]; if (!product) return; meals.push({ id: Date.now(), type: "商品", time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }), name: product.name, detail: `${product.unit} · バーコード検索`, emoji: product.emoji, kcal: product.kcal, protein: product.protein, fat: product.fat, carbs: product.carbs }); renderMeals(); renderSummary(); showToast(`${product.name}を食事に追加しました`); }
+async function fetchOpenFoodFactsProduct(code) { const response = await fetch(`${FOOD_API.openFoodFacts}/product/${encodeURIComponent(code)}.json?fields=code,product_name,product_name_ja,product_name_en,generic_name,brands,nutriments`); if (!response.ok) throw new Error(`Open Food Facts: ${response.status}`); const data = await response.json(); return data.status === 1 ? normalizeOpenFoodFactsProduct(data.product) : null; }
+async function renderBarcodeResult(code) {
+  const cleanCode = code.replace(/\D/g, ""); const target = $("#barcode-result"); currentBarcodeProduct = null;
+  if (!cleanCode) { target.innerHTML = `<p class="food-result-empty">バーコードを入力してください。</p>`; return; }
+  target.innerHTML = `<p class="food-result-empty">商品データベースを検索中...</p>`;
+  let product = null;
+  try { product = await fetchOpenFoodFactsProduct(cleanCode); } catch (error) { product = null; }
+  product = product || (barcodeCatalog[cleanCode] ? { ...barcodeCatalog[cleanCode], source: "NutriNoteサンプル商品" } : null);
+  currentBarcodeProduct = product;
+  target.innerHTML = product ? `<article class="food-result"><span class="food-result-icon">${escapeHtml(product.emoji)}</span><div><strong>${escapeHtml(product.name)}</strong><small>${formatNumber(product.kcal)} kcal · P ${product.protein}g · F ${product.fat}g · C ${product.carbs}g / ${escapeHtml(product.unit)}${product.brand ? `<br>${escapeHtml(product.brand)}` : ""}<br><span class="food-source">${escapeHtml(product.source || "Open Food Facts API")} · JAN ${cleanCode}</span></small></div><button data-add-barcode="${cleanCode}">＋追加</button></article>` : `<p class="food-result-empty">JAN ${cleanCode} の商品が見つかりませんでした。商品名で検索するか、バーコードを確認してください。</p>`;
+  $$('[data-add-barcode]').forEach((button) => button.addEventListener("click", () => addBarcodeProduct(button.dataset.addBarcode)));
+}
+function addBarcodeProduct(code) { const product = currentBarcodeProduct && (!currentBarcodeProduct.code || currentBarcodeProduct.code === code) ? currentBarcodeProduct : barcodeCatalog[code]; if (!product) return; meals.push({ id: Date.now(), type: "商品", time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }), name: product.name, detail: `${product.unit} · ${product.source || "バーコード検索"}`, emoji: product.emoji, kcal: product.kcal, protein: product.protein, fat: product.fat, carbs: product.carbs }); renderMeals(); renderSummary(); showToast(`${product.name}を食事に追加しました`); }
 function syncHealth() { stepsData = { steps: 7842, kcal: 284, connected: true }; renderSteps(); showToast("Google Healthの歩数を同期しました"); }
 function saveWeight() { const current = Number($("#current-weight").value) || weightData.current; weightData = { current, target: Number($("#target-weight").value) || weightData.target, deficit: Number($("#daily-deficit").value) || weightData.deficit, start: Math.max(weightData.start, current) }; const now = new Date(); weightHistory = [...weightHistory.slice(-6), { date: `${now.getMonth() + 1}/${now.getDate()}`, value: current }]; localStorage.setItem("nutrinote-weight-history", JSON.stringify(weightHistory)); renderWeight(); renderProfile(); renderSummary(); showToast("ダイエット目標を更新しました"); }
 function generateCoachAdvice(question) {
@@ -207,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#meal-image").addEventListener("change", (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { $("#image-preview").src = reader.result; $(".upload-box").classList.add("has-image"); $("#meal-description").value = "鶏むね肉、玄米、ブロッコリー"; $("#analyze-button").innerHTML = "<span>✦</span> 写真からAI解析する"; }; reader.readAsDataURL(file); });
   $$(".water-add").forEach((button) => button.addEventListener("click", () => { water = Math.min(3000, water + Number(button.dataset.amount)); renderWater(); showToast("水分を記録しました"); })); $("#water-reset").addEventListener("click", () => { water = 0; renderWater(); showToast("水分量をリセットしました"); });
   $$(".food-chip").forEach((button) => button.addEventListener("click", () => { openModal(); $("#meal-description").value = button.dataset.food; showToast(`${button.dataset.food}を解析欄に追加しました`); }));
-  $("#food-search-button").addEventListener("click", () => renderFoodResults($("#food-search").value.trim())); $("#food-search").addEventListener("input", (event) => renderFoodResults(event.target.value.trim())); $("#clear-food-search").addEventListener("click", () => { $("#food-search").value = ""; renderFoodResults(); });
+  $("#food-search-button").addEventListener("click", () => renderFoodResults($("#food-search").value.trim())); $("#food-search").addEventListener("keydown", (event) => { if (event.key === "Enter") renderFoodResults(event.target.value.trim()); }); $("#clear-food-search").addEventListener("click", () => { $("#food-search").value = ""; renderFoodResults(); });
   $("#barcode-search").addEventListener("click", () => renderBarcodeResult($("#barcode-input").value)); $("#barcode-input").addEventListener("keydown", (event) => { if (event.key === "Enter") renderBarcodeResult(event.target.value); }); $$('[data-barcode]').forEach((button) => button.addEventListener("click", () => { $("#barcode-input").value = button.dataset.barcode; renderBarcodeResult(button.dataset.barcode); }));
   $("#profile-save").addEventListener("click", saveProfile); $("#reminder-save").addEventListener("click", saveReminders); $("#reminder-test").addEventListener("click", testReminder); $("#weekly-review-button").addEventListener("click", () => { renderWeeklyReview(); showToast("週間レビューを更新しました"); });
   $("#weight-save").addEventListener("click", saveWeight); $("#health-sync").addEventListener("click", syncHealth);
